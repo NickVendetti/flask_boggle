@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Boggle Game</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <h1>Boggle Game</h1>
+    <div id="board-container">
+      <table>
+        {% for row in board %}
+        <tr>
+          {% for letter in row %}
+          <td>{{ letter }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <form id="guess-form">
+      <input type="text" id="guess" placeholder="Enter your guess" required />
+      <button type="submit">Submit Guess</button>
+    </form>
+
+    <div id="message"></div>
+    <div>Score: <span id="score">0</span></div>
+    <div>Time remaining: <span id="timer">60</span> seconds</div>
+    <div id="plays">Plays: 0</div>
+    <div id="high_score">High Score: 0</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      let score = 0;
+      let timeRemaining = 60;
+      let timer;
+
+      function startTimer() {
+        timer = setInterval(function () {
+          if (timeRemaining > 0) {
+            timeRemaining--;
+            document.getElementById("timer").innerText = timeRemaining;
+          } else {
+            clearInterval(timer);
+            document.getElementById("message").innerText = "Time's up!";
+            document.getElementById("guess").disabled = true;
+            document
+              .getElementById("guess-form")
+              .querySelector("button").disabled = true;
+
+            // Send score to the server
+            axios
+              .post("/end_game", { score: score })
+              .then((response) => {
+                const plays = response.data.plays;
+                const high_score = response.data.high_score;
+                document.getElementById("plays").innerText = `Plays: ${plays}`;
+                document.getElementById(
+                  "high_score"
+                ).innerText = `High Score: ${high_score}`;
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+          }
+        }, 1000);
+      }
+
+      $(document).ready(function () {
+        startTimer();
+
+        $("#guess-form").on("submit", function (event) {
+          event.preventDefault();
+          let guess = $("#guess").val();
+          axios
+            .post("/check_word", { word: guess })
+            .then((response) => {
+              let result = response.data.result;
+              let message = "";
+
+              if (result === "ok") {
+                message = "Correct!";
+                score += guess.length;
+                $("#score").text(score);
+              } else if (result === "not-on-board") {
+                message = "Word not on board.";
+              } else {
+                message = "Not a valid word.";
+              }
+
+              $("#message").text(message);
+              $("#guess").val("");
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+            });
+        });
+      });
+    </script>
+  </body>
+</html>
